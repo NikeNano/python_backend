@@ -128,6 +128,8 @@ SignalHandler(int signum)
   // Skip the SIGINT and SIGTERM
 }
 
+std::atomic<bool> sigterm_received{false};
+
 void
 Stub::Instantiate(
     int64_t shm_growth_size, int64_t shm_default_size,
@@ -718,8 +720,8 @@ main(int argc, char** argv)
 
   // Start the Python Interpreter
   py::scoped_interpreter guard{};
-  pid_t parent_pid = std::stoi(argv[5]);
 
+  std::atomic<bool> non_graceful_exit = {false};
   std::atomic<bool> background_thread_running = {true};
   std::thread background_thread =
       std::thread([&parent_pid, &background_thread_running, &stub] {
@@ -744,6 +746,11 @@ main(int argc, char** argv)
           }
         }
       });
+  
+  // Initialize needs to be called after the background health thread
+  // has started. Otherwise, if the initialize takes long time, the
+  // main process wrongly assumes that the stub process has crashed.
+  stub->Initialize(model_version, argv[6] /* triton install path */);
 
   // This is the only place where NotifyParent() and WaitForNotification() are
   // allowed to be called. The stub process will always keep listening for new

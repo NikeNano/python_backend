@@ -1302,18 +1302,25 @@ ModelInstanceState::~ModelInstanceState()
       // Finalize command does not have any arguments.
       ipc_message_->command = PYTHONSTUB_CommandType::PYTHONSTUB_Finalize;
 
-      bool restart = false;
-      if (!NotifyStubAndWait(restart))
-        force_kill = true;
-    } else {
-      force_kill = true;
-    }
+      if (NotifyStub()) {
+        // Wait for stub notification
+        parent_cond_->wait(*parent_lock_);
+      }
 
-    int status;
-    if (force_kill) {
-      kill(stub_pid_, SIGKILL);
+      // Terminate the stub process if it has been created.
+      if (stub_pid_ != 0) {
+        int status;
+        kill(stub_pid_, SIGTERM);
+        waitpid(stub_pid_, &status, 0);
+      }
+    } else {
+      // Force terminate the stub process if it is not healthy.
+      if (stub_pid_ != 0) {
+        int status;
+        kill(stub_pid_, SIGKILL);
+        waitpid(stub_pid_, &status, 0);
+      }
     }
-    waitpid(stub_pid_, &status, 0);
   }
 
   // Destory the lock before deletion of shared memory is triggered.
