@@ -726,9 +726,9 @@ main(int argc, char** argv)
         while (background_thread_running) {
           // Every 300ms set the health variable to true. This variable is in
           // shared memory and will be set to false by the parent process.
-          // The parent process expects that the stub process sets this variable
-          // to true within 1 second.
-          sleep(0.3);
+          // The parent process expects that the stub process sets this
+          // variable to true within 1 second.
+          std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
           stub->UpdateHealth();
 
